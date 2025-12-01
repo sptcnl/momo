@@ -9,7 +9,7 @@ left_ena = 25
 # 오른쪽 모터드라이버
 right_in3 = 18
 right_in4 = 17
-right_enb = 34
+right_enb = 27
 
 GPIO.setmode(GPIO.BCM)
 
