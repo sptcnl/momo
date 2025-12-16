@@ -95,7 +95,7 @@ def run_whisper_faster(wav_path):
         texts.append(seg.text)
 
     full_text = " ".join(texts).strip()
-    return full_text if full_text else "(인식된 텍스트 없음)"
+    return full_text if full_text else ""
 
 def stt_from_mic(seconds=RECORD_SECONDS):
     """전체 파이프라인: 녹음 → faster-whisper → 텍스트 리턴"""
