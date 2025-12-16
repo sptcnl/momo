@@ -1,15 +1,16 @@
 # stt_whispercpp.py (2025 최신 안정화 버전)
-import subprocess
 import tempfile
 import pyaudio
 import wave
 import time
 import os
-import shutil
 
-# whisper.cpp 최신 실행 파일 경로
-WHISPER_BIN = "/home/sptcnl/momo/whisper.cpp/build/bin/whisper-cli"
-WHISPER_MODEL = "/home/sptcnl/momo/whisper.cpp/models/ggml-base.bin"
+from faster_whisper import WhisperModel
+
+# Whisper 모델 설정
+WHISPER_MODEL_NAME = "base"  # "base.en", "small", "small.en" 등으로 교체 가능
+DEVICE = "cpu"               # GPU 사용 시 "cuda"
+COMPUTE_TYPE = "int8"        # Pi면 "int8" 또는 "int8_float16" 추천
 
 CHUNK = 1024
 FORMAT = pyaudio.paInt16
@@ -17,19 +18,18 @@ CHANNELS = 1
 RATE = 16000
 RECORD_SECONDS = 4
 
-# PyAudio 초기화 (에러 방지)
+# PyAudio 초기화
 p = pyaudio.PyAudio()
 stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE,
                 input=True, frames_per_buffer=CHUNK)
 
-
-def check_environment():
-    """whisper.cpp 실행 파일과 모델 파일 확인"""
-    if not os.path.exists(WHISPER_BIN):
-        raise FileNotFoundError(f"❌ whisper-cli 실행파일 없음: {WHISPER_BIN}")
-
-    if not os.path.exists(WHISPER_MODEL):
-        raise FileNotFoundError(f"❌ tiny 모델 없음: {WHISPER_MODEL}")
+# faster-whisper 모델 로드 (한 번만)
+print("📦 faster-whisper 모델 로딩 중...")
+model = WhisperModel(
+    WHISPER_MODEL_NAME,
+    device=DEVICE,
+    compute_type=COMPUTE_TYPE,
+)
 
 def record_audio(seconds=RECORD_SECONDS):
     print(f"[녹음 시작] {seconds}초 동안 말하세요...")
@@ -73,53 +73,49 @@ def record_audio(seconds=RECORD_SECONDS):
             os.unlink(tmp.name)
         return None
 
-def run_whisper(wav_path):
-    output_txt = wav_path.replace(".wav", ".txt")
-    
-    cmd = [
-        WHISPER_BIN,
-        "-m", WHISPER_MODEL,
-        "-f", wav_path,
-        "-l", "ko",  # --language → -l (최신 표준)
-        "-otxt",     # 텍스트 파일 출력
-        "-pp"        # 후처리 활성화 (더 정확)
-    ]
-    
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-    
-    # .txt 파일 대신 stdout 확인 (더 안정적)
-    if result.stdout.strip():
-        text = result.stdout.strip()
-    elif os.path.exists(output_txt):
-        with open(output_txt, "r", encoding="utf-8") as f:
-            text = f.read().strip()
-        os.unlink(output_txt)
-    else:
-        text = f"실패: {result.stderr}"  # 디버깅용
-    
-    return text
+def run_whisper_faster(wav_path):
+    """
+    faster-whisper로 WAV 파일을 바로 읽어 텍스트 추출
+    """
+    # language="en" / "ko" 로 고정하고 싶으면 지정, 자동감지는 language=None
+    segments, info = model.transcribe(
+        wav_path,
+        beam_size=5,
+        vad_filter=True,       # 침묵 부분 자동 제거
+        language=None,         # "en" 또는 "ko"로 고정 가능
+        condition_on_previous_text=False,
+    )
+
+    print(f"🧠 detected language: {info.language}, prob={info.language_probability:.2f}")
+
+    texts = []
+    for seg in segments:
+        # seg.text에 한 문장 단위 텍스트가 들어옵니다.
+        print(f"[{seg.start:.2f}~{seg.end:.2f}] {seg.text}")
+        texts.append(seg.text)
+
+    full_text = " ".join(texts).strip()
+    return full_text if full_text else "(인식된 텍스트 없음)"
 
 def stt_from_mic(seconds=RECORD_SECONDS):
-    """전체 파이프라인: 녹음 → whisper.cpp → 텍스트 리턴"""
+    """전체 파이프라인: 녹음 → faster-whisper → 텍스트 리턴"""
     try:
         wav = record_audio(seconds)
-        print("🔄 whisper.cpp 인식 중…")
+        if not wav:
+            return "❌ 녹음 실패"
 
-        text = run_whisper(wav)
+        print("🔄 faster-whisper 인식 중…")
+        text = run_whisper_faster(wav)
 
         os.unlink(wav)
         return text
 
-    except subprocess.TimeoutExpired:
-        return "⏰ 인식 타임아웃"
     except Exception as e:
         return f"❌ 오류 발생: {e}"
 
-
 if __name__ == "__main__":
     try:
-        check_environment()
-        print("🎤 whisper.cpp 한국어 STT (라즈베리파이 최적화) 시작!")
+        print("🎤 faster-whisper STT (라즈베리파이 최적화) 시작!")
 
         while True:
             text = stt_from_mic(4)
@@ -128,3 +124,7 @@ if __name__ == "__main__":
 
     except Exception as e:
         print(f"프로그램 초기화 실패: {e}")
+    finally:
+        stream.stop_stream()
+        stream.close()
+        p.terminate()
