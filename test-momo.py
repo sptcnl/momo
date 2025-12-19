@@ -10,8 +10,8 @@ import os
 import time
 import l298n  # l298n.py import (함수들 직접 사용)
 
-# 초음파 센서 (l298n.py의 right_in4=17과 충돌 → 핀 변경 필요)
-distanceSensor = DistanceSensor(echo=22, trigger=5)  # echo/trigger 핀 변경 추천
+# 초음파 센서
+distanceSensor = DistanceSensor(echo=21, trigger=4)
 
 # Piper TTS 초기화
 print("🤖 음성 모델 로딩 중...")
