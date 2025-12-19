@@ -1,6 +1,5 @@
 import RPi.GPIO as GPIO
 from time import sleep
-import math
 
 GPIO.setmode(GPIO.BCM)
 servo_pin = 12
@@ -18,64 +17,52 @@ def set_servo_degree(degree):
         degree = 0
     duty = servo_min_duty + (degree * (servo_max_duty - servo_min_duty) / 180.0)
     servo.ChangeDutyCycle(duty)
-    sleep(0.02)  # 부드러운 움직임을 위한 작은 딜레이
+    sleep(0.02)
 
-def tail_wag():
-    """개 꼬리 흔들기 패턴: 좌우 빠르게 흔들기"""
-    wag_count = 0
-    while wag_count < 10:  # 10회 반복
-        # 왼쪽으로 흔들기 (빠르게)
-        for degree in range(60, 120, 4):  # 60도에서 120도로 4도씩 증가
-            set_servo_degree(degree)
-        for degree in range(120, 60, -4):  # 120도에서 60도로 4도씩 감소
-            set_servo_degree(degree)
-        
-        # 오른쪽으로 흔들기 (반대 방향)
-        for degree in range(120, 60, -4):
-            set_servo_degree(degree)
-        for degree in range(60, 120, 4):
-            set_servo_degree(degree)
-        
-        wag_count += 1
+running = False  # 꼬리 동작 상태
 
-def excited_tail_wag():
-    """신난 꼬리 흔들기: 더 빠르고 크게"""
-    wag_count = 0
-    while wag_count < 15:
-        # 큰 진폭으로 빠르게 흔들기
-        for degree in range(45, 135, 6):
+def tail_wag_continuous():
+    """무한 꼬리 흔들기"""
+    global running
+    print("꼬리 흔들기 시작! (0 또는 Ctrl+C로 멈춤)")
+    while running:
+        # 빠른 좌우 흔들기
+        for degree in range(60, 120, 5):
+            if not running: break
             set_servo_degree(degree)
-        for degree in range(135, 45, -6):
+        if not running: break
+        for degree in range(120, 60, -5):
+            if not running: break
             set_servo_degree(degree)
-        wag_count += 1
+        if not running: break
 
 try:
-    print("꼬리 흔들기 시작! (Ctrl+C로 종료)")
-    print("1: 기본 꼬리 흔들기")
-    print("2: 신난 꼬리 흔들기")
-    print("0: 정지")
-    
+    print("명령어: 1(시작), 0(정지), e(종료)")
     while True:
-        cmd = input("명령어 입력 (1,2,0): ")
+        cmd = input("명령어 입력: ").strip()
         
         if cmd == '1':
-            print("기본 꼬리 흔들기 실행")
-            tail_wag()
-            
-        elif cmd == '2':
-            print("신난 꼬리 흔들기 실행!")
-            excited_tail_wag()
-            
+            if not running:
+                running = True
+                tail_wag_continuous()  # 새 스레드 없이 순차 실행
+                
         elif cmd == '0':
+            running = False
             set_servo_degree(90)  # 중립 위치
-            print("꼬리 정지")
+            print("꼬리 정지!")
+            
+        elif cmd == 'e':
+            running = False
+            break
             
         else:
-            print("명령어: 1(기본), 2(신남), 0(정지)")
+            print("명령어: 1(시작), 0(정지), e(종료)")
 
 except KeyboardInterrupt:
-    print("\n프로그램 종료")
+    print("\nCtrl+C로 종료")
 finally:
+    running = False
+    set_servo_degree(90)
     servo.ChangeDutyCycle(0)
     servo.stop()
     GPIO.cleanup()
