@@ -28,7 +28,7 @@ class RobotHardware:
         self.picam2.configure(config)
         
         # Distance sensor
-        self.distance_sensor = DistanceSensor(echo=17, trigger=4)
+        self.distance_sensor = DistanceSensor(echo=3, trigger=4)
         
         # Motor control
         self.left_in3, self.left_in4, self.left_ena = 24, 23, 25
