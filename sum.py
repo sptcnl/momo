@@ -1,5 +1,4 @@
 import cv2
-from picamera2 import Picamera2
 from gpiozero import DistanceSensor
 import RPi.GPIO as GPIO
 from face_emotion import get_current_emotion  # 기존 emotion 모듈 사용
@@ -20,12 +19,13 @@ except:
 # 하드웨어 설정
 class RobotHardware:
     def __init__(self):
-        # Face detection
+        # Face detection - USB 카메라로 변경
         self.cascade_path = "/home/sptcnl/haarcascade_frontalface_default.xml"
         self.face_cascade = cv2.CascadeClassifier(self.cascade_path)
-        self.picam2 = Picamera2()
-        config = self.picam2.create_preview_configuration(main={"size": (640, 480), "format": "RGB888"})
-        self.picam2.configure(config)
+        self.cap = cv2.VideoCapture(0)  # USB 카메라 (0번 포트)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        self.cap.set(cv2.CAP_PROP_FPS, 30)
         
         # Distance sensor
         self.distance_sensor = DistanceSensor(echo=3, trigger=4)
@@ -48,16 +48,25 @@ class RobotHardware:
         # 상태 변수
         self.is_moving = False
         self.current_speed = 50
+        self.current_distance = 0
+        self.face_detected = False
+        self.running = False
         
     def start_camera(self):
-        self.picam2.start()
-        
+        """USB 카메라 시작 확인"""
+        ret, test_frame = self.cap.read()
+        if ret:
+            print("📷 USB 카메라 연결 성공!")
+        else:
+            print("❌ USB 카메라 연결 실패! 꽂혀있는지 확인하세요")
+    
     def detect_face(self):
-        """얼굴 감지 및 거리 측정"""
-        frame = self.picam2.capture_array()
-        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        """얼굴 감지 및 거리 측정 - USB 카메라"""
+        ret, frame = self.cap.read()
+        if not ret:
+            return False, 0, 0
         
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         faces = self.face_cascade.detectMultiScale(gray, 1.2, 5)
         distance = self.distance_sensor.distance * 100
         
@@ -74,7 +83,7 @@ class RobotHardware:
                 self.is_moving = False
             return False, distance, 0
     
-    # 모터 제어 함수들
+    # 모터 제어 함수들 (변경 없음)
     def forward(self):
         GPIO.output(self.left_in3, GPIO.HIGH); GPIO.output(self.left_in4, GPIO.LOW)
         GPIO.output(self.right_in3, GPIO.HIGH); GPIO.output(self.right_in4, GPIO.LOW)
@@ -104,9 +113,11 @@ class RobotHardware:
     
     def cleanup(self):
         self.stop()
-        self.picam2.stop()
+        if self.cap:
+            self.cap.release()
         self.left_pwm.stop()
         self.right_pwm.stop()
+        cv2.destroyAllWindows()
         GPIO.cleanup()
 
 def local_chat(user_text: str, emotion: str, face_detected: bool, distance: float) -> str:
