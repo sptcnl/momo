@@ -145,15 +145,15 @@ try:
             
             # TTS 발화 조건 (쿨다운 확인)
             if current_time - last_speak_time > SPEAK_COOLDOWN:
-                if distance_cm > 150:
+                if distance_cm > 90:
                     tts_speak("더 가까이 오세요!")
                     last_speak_time = current_time
-                elif 100 < distance_cm <= 150:
+                elif 90 < distance_cm <= 100:
                     tts_speak("따라갈게요!")
                     last_speak_time = current_time
             
-            # 거리 100cm 이상이고 얼굴이 감지되면 추적
-            if distance_cm > 100:
+            # 거리 50cm 이상이고 얼굴이 감지되면 추적
+            if distance_cm > 50:
                 if abs(error_x) < 50:  # 중앙
                     forward(40)
                     status = "전진"
