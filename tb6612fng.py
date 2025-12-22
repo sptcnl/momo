@@ -54,7 +54,7 @@ def runMotor(motor, spd, direction):
         pwma.ChangeDutyCycle(spd)
     elif(motor == 1):
         GPIO.output(15, in1)
-        GPIO.output(13, in2)
+        GPIO.output(29, in2)
         pwmb.ChangeDutyCycle(spd)
 
 
