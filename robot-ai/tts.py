@@ -3,8 +3,8 @@ import subprocess
 import uuid
 import os
 
-PIPER_BIN = "/home/pi/piper/piper"
-PIPER_MODEL = "/home/pi/piper/ko_KR-sunhi-medium.onnx"
+PIPER_BIN = "/home/sptcnl/piper/piper"
+PIPER_MODEL = "/home/sptcnl/piper/ko_KR-sunhi-medium.onnx"
 
 def tts_play(text: str):
     if not text:
