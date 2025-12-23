@@ -3,8 +3,8 @@ import subprocess
 import uuid
 import os
 
-WHISPER_BIN = "/home/pi/whisper.cpp/main"
-WHISPER_MODEL = "/home/pi/whisper.cpp/models/ggml-base.bin"
+WHISPER_BIN = "/home/sptcnl/whisper.cpp/main"
+WHISPER_MODEL = "/home/sptcnl/whisper.cpp/models/ggml-base.bin"
 
 def stt_from_mic(seconds: int = 5) -> str:
     wav_file = f"/tmp/rec_{uuid.uuid4().hex}.wav"
