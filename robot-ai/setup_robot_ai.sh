@@ -70,7 +70,8 @@ pip install \
   torch \
   torchaudio \
   transformers \
-  requests
+  requests \
+  Pillow \
 
 echo "✅ Robot-AI 설치 완료!"
 echo "👉 source .venv/bin/activate"
