@@ -12,7 +12,7 @@ import subprocess
 def tts_play(text: str):
     try:
         # 1. 음성 모델 로드
-        voice = PiperVoice.load("en_US-lessac-medium.onnx")
+        voice = PiperVoice.load("en_US-amy-medium.onnx")
 
         with wave.open("test.wav", "wb") as wav_file:
             voice.synthesize_wav(text, wav_file)
