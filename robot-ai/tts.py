@@ -1,37 +1,35 @@
-# tts.py
-import subprocess
-import uuid
+#!/usr/bin/env python3
+# tts_piper.py - Raspberry Pi 최적화 버전
+import sounddevice as sd
+import soundfile as sf
 import os
-
-PIPER_BIN = "/home/sptcnl/piper/piper"
-PIPER_MODEL = "/home/sptcnl/piper/ko_KR-sunhi-medium.onnx"
+import subprocess
+import sys
+import wave
+from piper import PiperVoice
+import subprocess
 
 def tts_play(text: str):
-    if not text:
-        return
-
-    wav_file = f"/tmp/tts_{uuid.uuid4().hex}.wav"
-
     try:
-        # 텍스트 → 음성
-        p = subprocess.Popen(
-            [
-                PIPER_BIN,
-                "--model", PIPER_MODEL,
-                "--output_file", wav_file
-            ],
-            stdin=subprocess.PIPE
-        )
-        p.stdin.write(text.encode("utf-8"))
-        p.stdin.close()
-        p.wait()
+        # 1. 음성 모델 로드
+        voice = PiperVoice.load("en_US-lessac-medium.onnx")
 
-        # 재생
-        subprocess.run(["aplay", wav_file], check=False)
-
+        with wave.open("test.wav", "wb") as wav_file:
+            voice.synthesize_wav(text, wav_file)
+        subprocess.run(["aplay", "test.wav"])
+        return True
     except Exception as e:
-        print("⚠️ TTS 실패:", e)
+        print(f'error: {e}')
 
-    finally:
-        if os.path.exists(wav_file):
-            os.remove(wav_file)
+if __name__ == "__main__":
+    print("🤖 반려로봇 TTS 테스트")
+    print("-" * 40)
+    
+    success = tts_play("Hello world")
+    
+    if success:
+        print("\n✅ TTS 완벽 작동! 로봇에 통합 가능")
+    else:
+        print("\n🔧 설치 확인:")
+        print("1. pip install piper-tts")
+        print("2. echo '테스트' | piper --model ko_KR --output_file /tmp/test.wav")
