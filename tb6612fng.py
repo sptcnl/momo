@@ -19,8 +19,8 @@ PWMA = 12    # 모터 A PWM
 AIN1 = 16    # 모터 A 방향1
 AIN2 = 18    # 모터 A 방향2
 STBY = 22    # Standby (드라이버 활성화)
-BIN1 = 29    # 모터 B 방향1
-BIN2 = 15    # 모터 B 방향2
+BIN1 = 15    # 모터 B 방향1
+BIN2 = 29    # 모터 B 방향2
 PWMB = 11    # 모터 B PWM
 
 # PWM 설정
