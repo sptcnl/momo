@@ -1,23 +1,24 @@
 import time
 import board
 import busio
-import vl53l1x
+from adafruit_vl53l1x import VL53L1X
 
-# I2C 버스 열기 (라즈베리파이 기본 I2C-1)
+# I2C 버스 열기
 i2c = busio.I2C(board.SCL, board.SDA)
 
-# 센서 객체 생성
-sensor = vl53l1x.VL53L1X(i2c, address=0x29)
+# 센서 생성
+sensor = VL53L1X(i2c, address=0x29)
 
-# 거리 측정 시작
+# 연속 측정 시작
 sensor.start_ranging()
 
 try:
     while True:
-        distance_mm = sensor.distance  # 단위: mm
-        print(f"Distance: {distance_mm} mm")
+        if sensor.distance:
+            distance_mm = sensor.distance
+            print(f"거리: {distance_mm} mm ({distance_mm/10:.1f} cm)")
         time.sleep(0.1)
 except KeyboardInterrupt:
-    pass
+    print("\n중단됨")
 finally:
     sensor.stop_ranging()
