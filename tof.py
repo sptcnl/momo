@@ -15,8 +15,8 @@ sensor.start_ranging()
 try:
     while True:
         if sensor.distance:
-            distance_mm = sensor.distance
-            print(f"거리: {distance_mm} mm ({distance_mm/10:.1f} cm)")
+            distance_cm = sensor.distance
+            print(f"거리: {distance_cm} cm ({distance_cm/10:.1f} m)")
         time.sleep(0.1)
 except KeyboardInterrupt:
     print("\n중단됨")
