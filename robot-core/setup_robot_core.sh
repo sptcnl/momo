@@ -25,7 +25,7 @@ sudo apt install -y \
 
 ### 2. Python 가상환경
 echo "🐍 Python 가상환경 생성..."
-python3 -m venv $VENV_DIR
+python3 -m venv $VENV_DIR --system-site-packages
 source $VENV_DIR/bin/activate
 pip install --upgrade pip wheel setuptools
 
@@ -36,8 +36,6 @@ pip install \
   opencv-python \
   sounddevice \
   soundfile \
-  gpiozero \
-  RPi.GPIO \
   requests \
 
 echo "✅ Robot-Core 설치 완료!"
