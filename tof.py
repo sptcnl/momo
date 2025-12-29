@@ -16,7 +16,7 @@ try:
     while True:
         if sensor.distance:
             distance_cm = sensor.distance
-            print(f"거리: {distance_cm} cm ({distance_cm/10:.1f} m)")
+            print(f"거리: {distance_cm} cm ({distance_cm/100:.2f} m)")
         time.sleep(0.1)
 except KeyboardInterrupt:
     print("\n중단됨")
