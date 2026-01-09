@@ -1,22 +1,23 @@
 import cv2
-from face_emotion import get_current_emotion
+from face_emotion import get_current_emotion  # fswebcam 버전
 from stt_whispercpp import stt_from_mic
 from tts_piper import tts_play
 import time
 import threading
 import RPi.GPIO as GPIO
 import gc  # 메모리 관리용
+import subprocess
+import os
 
 # BitNet을 위한 llama-cpp-python 사용 (CPU 전용)
 try:
     from llama_cpp import Llama
-    # BitNet 3B 양자화 모델 경로 (미리 다운로드 필요)
-    BITNET_MODEL_PATH = "/home/sptcnl/models/bitnet_b1_58-3B.Q4_K_M.gguf"  # 예시 경로
+    BITNET_MODEL_PATH = "/home/sptcnl/models/bitnet_b1_58-3B.Q4_K_M.gguf"
     chat_model = Llama(
         model_path=BITNET_MODEL_PATH,
-        n_ctx=512,      # 짧은 컨텍스트로 메모리 절약
-        n_threads=4,    # 라즈베리파이 4코어 활용
-        n_gpu_layers=0, # CPU 전용
+        n_ctx=512,
+        n_threads=4,
+        n_gpu_layers=0,
         verbose=False
     )
     LLM_AVAILABLE = True
@@ -24,7 +25,6 @@ try:
 except Exception as e:
     LLM_AVAILABLE = False
     print(f"⚠️ BitNet 로드 실패: {e}")
-    print("💡 bitnet.cpp로 변환된 gguf 파일을 다운로드하세요")
 
 GPIO.setmode(GPIO.BCM)
 servo_pin = 12
@@ -38,22 +38,37 @@ class RobotHardware:
     def __init__(self):
         self.cascade_path = "/home/sptcnl/haarcascade_frontalface_default.xml"
         self.face_cascade = cv2.CascadeClassifier(self.cascade_path)
-        self.cap = cv2.VideoCapture(0)
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-        self.cap.set(cv2.CAP_PROP_FPS, 30)
-        
+        # self.cap 제거 - fswebcam 사용
         self.face_detected = False
         self.running = False
         self.tail_running = False
         self.tail_thread = None
         
     def start_camera(self):
-        ret, test_frame = self.cap.read()
-        if ret:
-            print("📷 USB 카메라 연결 성공!")
+        """fswebcam으로 카메라 테스트"""
+        test_img = self.capture_face_image()
+        if test_img:
+            print("📷 fswebcam USB 카메라 연결 성공!")
+            os.unlink(test_img)  # 테스트 이미지 삭제
         else:
-            print("❌ USB 카메라 연결 실패! 꽂혀있는지 확인하세요")
+            print("❌ fswebcam 카메라 연결 실패! USB 연결 확인하세요")
+    
+    def capture_face_image(self):
+        """fswebcam으로 단일 이미지 캡처"""
+        temp_file = f"/tmp/webcam_face_{int(time.time())}.jpg"
+        cmd = [
+            "fswebcam",
+            "--resolution", "640x480",
+            "--no-banner",
+            "--save", temp_file
+        ]
+        try:
+            subprocess.run(cmd, check=True, capture_output=True, timeout=3)
+            if os.path.exists(temp_file):
+                return temp_file
+        except:
+            pass
+        return None
     
     def set_servo_degree(self, degree):
         if degree > 180: degree = 180
@@ -87,25 +102,32 @@ class RobotHardware:
         print("🛑 꼬리 정지!")
     
     def detect_face(self):
-        ret, frame = self.cap.read()
-        if not ret:
+        """fswebcam + OpenCV 얼굴 인식"""
+        img_path = self.capture_face_image()
+        if not img_path:
             return False, 0
         
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = self.face_cascade.detectMultiScale(gray, 1.2, 5)
-        face_detected = len(faces) > 0
-        
-        if face_detected and not self.tail_running:
-            self.start_tail_wag()
-        elif not face_detected and self.tail_running:
-            self.stop_tail()
-        
-        return face_detected, len(faces)
+        try:
+            frame = cv2.imread(img_path)
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = self.face_cascade.detectMultiScale(gray, 1.2, 5)
+            face_detected = len(faces) > 0
+            
+            if face_detected and not self.tail_running:
+                self.start_tail_wag()
+            elif not face_detected and self.tail_running:
+                self.stop_tail()
+            
+            os.unlink(img_path)  # 캡처 이미지 삭제
+            return face_detected, len(faces)
+            
+        except Exception as e:
+            if img_path and os.path.exists(img_path):
+                os.unlink(img_path)
+            return False, 0
     
     def cleanup(self):
         self.stop_tail()
-        if self.cap:
-            self.cap.release()
         cv2.destroyAllWindows()
         servo.ChangeDutyCycle(0)
         servo.stop()
@@ -121,23 +143,21 @@ def local_chat(user_text: str, emotion: str, face_detected: bool) -> str:
     if LLM_AVAILABLE:
         try:
             prompt = f"[{context}] User: {user_text}\nFriendly robot dog:"
-            # BitNet에 최적화된 짧은 생성
             response = chat_model(
                 prompt, 
-                max_tokens=50,      # 더 짧게
+                max_tokens=50,
                 temperature=0.7,
                 top_p=0.9,
-                stop=["User:", "\n\n"],  # 깔끔한 종료
+                stop=["User:", "\n\n"],
                 echo=False
             )
             reply = response['choices'][0]['text'].strip()
-            gc.collect()  # 메모리 정리
-            return reply[:80]  # 더 짧게 제한
+            gc.collect()
+            return reply[:80]
         except Exception as e:
             print(f"LLM 오류: {e}")
             gc.collect()
     
-    # Fallback 응답 (GPT-2 제거)
     if face_detected:
         return "🐶 얼굴 봤어! 같이 놀자!"
     elif "안녕" in user_text or "hi" in user_text:
@@ -154,9 +174,14 @@ def hardware_monitoring_loop(robot):
         
         count += 1
         print(f"[📸 {count:4d}] 얼굴:{face_count} 꼬리:{'흔들림' if robot.tail_running else '정지'}", end='\r')
-        time.sleep(0.1)
+        time.sleep(0.5)  # fswebcam은 느리므로 간격 늘림
 
 def main_loop():
+    print("🚀 fswebcam 반려로봇 시작 전 필수 확인!")
+    print("1. sudo apt install fswebcam")
+    print("2. USB 카메라 연결")
+    print("3. haarcascade_frontalface_default.xml 파일 존재 확인")
+    
     robot = RobotHardware()
     robot.running = True
     robot.start_camera()
@@ -164,7 +189,7 @@ def main_loop():
     monitor_thread = threading.Thread(target=hardware_monitoring_loop, args=(robot,), daemon=True)
     monitor_thread.start()
     
-    print("🚀 BitNet 반려로봇 시작! (얼굴감지 + 꼬리흔들기 + 음성대화)")
+    print("🚀 BitNet 반려로봇 시작! (fswebcam 얼굴감지 + 꼬리흔들기 + 음성대화)")
     print("💾 메모리: htop으로 MEM/SWP 모니터링 권장")
     print("Ctrl+C로 종료")
     
@@ -174,7 +199,7 @@ def main_loop():
             
             print(f"[📸 얼굴]: {'O' if robot.face_detected else 'X'} [🐕 꼬리]: {'흔들림' if robot.tail_running else '정지'}")
             
-            emotion = get_current_emotion()
+            emotion = get_current_emotion()  # fswebcam 기반
             print(f"[😊 감정]: {emotion}")
             
             print("🎤 말해줘... (10초)")
@@ -191,10 +216,10 @@ def main_loop():
         print("\n👋 로봇 종료 중...")
     finally:
         robot.running = False
-        time.sleep(0.5)
+        time.sleep(1.0)  # fswebcam 정리 대기
         robot.cleanup()
         if LLM_AVAILABLE:
-            chat_model.free()  # 모델 메모리 해제
+            chat_model.free()
             gc.collect()
 
 if __name__ == "__main__":
