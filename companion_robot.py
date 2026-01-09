@@ -5,14 +5,26 @@ from tts_piper import tts_play
 import time
 import threading
 import RPi.GPIO as GPIO
+import gc  # 메모리 관리용
 
+# BitNet을 위한 llama-cpp-python 사용 (CPU 전용)
 try:
-    from transformers import pipeline
-    chat_pipeline = pipeline("text-generation", model="gpt2", device=-1, torch_dtype="float32")
+    from llama_cpp import Llama
+    # BitNet 3B 양자화 모델 경로 (미리 다운로드 필요)
+    BITNET_MODEL_PATH = "/home/sptcnl/models/bitnet_b1_58-3B-q4.gguf"  # 예시 경로
+    chat_model = Llama(
+        model_path=BITNET_MODEL_PATH,
+        n_ctx=512,      # 짧은 컨텍스트로 메모리 절약
+        n_threads=4,    # 라즈베리파이 4코어 활용
+        n_gpu_layers=0, # CPU 전용
+        verbose=False
+    )
     LLM_AVAILABLE = True
-except:
+    print("✅ BitNet 3B 로드 성공! (~1GB 메모리)")
+except Exception as e:
     LLM_AVAILABLE = False
-    print("⚠️ LLM 로드 실패")
+    print(f"⚠️ BitNet 로드 실패: {e}")
+    print("💡 bitnet.cpp로 변환된 gguf 파일을 다운로드하세요")
 
 GPIO.setmode(GPIO.BCM)
 servo_pin = 12
@@ -108,13 +120,24 @@ def local_chat(user_text: str, emotion: str, face_detected: bool) -> str:
     
     if LLM_AVAILABLE:
         try:
-            prompt = f"[{context}] User: {user_text}\nRobot (friendly companion robot):"
-            response = chat_pipeline(prompt, max_new_tokens=40, do_sample=True)
-            reply = response[0]['generated_text'].split("Robot:")[-1].strip()
-            return reply[:100]
-        except:
-            pass
+            prompt = f"[{context}] User: {user_text}\nFriendly robot dog:"
+            # BitNet에 최적화된 짧은 생성
+            response = chat_model(
+                prompt, 
+                max_tokens=50,      # 더 짧게
+                temperature=0.7,
+                top_p=0.9,
+                stop=["User:", "\n\n"],  # 깔끔한 종료
+                echo=False
+            )
+            reply = response['choices'][0]['text'].strip()
+            gc.collect()  # 메모리 정리
+            return reply[:80]  # 더 짧게 제한
+        except Exception as e:
+            print(f"LLM 오류: {e}")
+            gc.collect()
     
+    # Fallback 응답 (GPT-2 제거)
     if face_detected:
         return "🐶 얼굴 봤어! 같이 놀자!"
     elif "안녕" in user_text or "hi" in user_text:
@@ -141,7 +164,8 @@ def main_loop():
     monitor_thread = threading.Thread(target=hardware_monitoring_loop, args=(robot,), daemon=True)
     monitor_thread.start()
     
-    print("🚀 반려로봇 시작! (얼굴감지 + 꼬리흔들기 + 음성대화)")
+    print("🚀 BitNet 반려로봇 시작! (얼굴감지 + 꼬리흔들기 + 음성대화)")
+    print("💾 메모리: htop으로 MEM/SWP 모니터링 권장")
     print("Ctrl+C로 종료")
     
     try:
@@ -158,7 +182,7 @@ def main_loop():
             print(f"[💭 STT]: '{text}'")
             
             reply = local_chat(text, emotion, robot.face_detected)
-            print(f"[🤖 로봇]: {reply}")
+            print(f"[🤖 BitNet]: {reply}")
             
             tts_play(reply)
             print("-" * 50)
@@ -169,6 +193,9 @@ def main_loop():
         robot.running = False
         time.sleep(0.5)
         robot.cleanup()
+        if LLM_AVAILABLE:
+            chat_model.free()  # 모델 메모리 해제
+            gc.collect()
 
 if __name__ == "__main__":
     main_loop()
