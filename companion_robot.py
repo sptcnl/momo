@@ -11,7 +11,7 @@ import gc  # 메모리 관리용
 try:
     from llama_cpp import Llama
     # BitNet 3B 양자화 모델 경로 (미리 다운로드 필요)
-    BITNET_MODEL_PATH = "/home/sptcnl/models/bitnet_b1_58-3B-q4.gguf"  # 예시 경로
+    BITNET_MODEL_PATH = "/home/sptcnl/models/bitnet_b1_58-3B.Q4_K_M.gguf"  # 예시 경로
     chat_model = Llama(
         model_path=BITNET_MODEL_PATH,
         n_ctx=512,      # 짧은 컨텍스트로 메모리 절약
