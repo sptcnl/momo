@@ -1,45 +1,40 @@
-# BitNet 반려로봇 requirements.txt (Raspberry Pi ARM 최적화)
-# Python 3.11 (RPi Bookworm 기본) 기준
+# BitNet 반려로봇 rq.txt - Raspberry Pi ARM64 최적화 (2026.01)
+# tokenizers 버전 수정 + piwheels 우선
 
-# Computer Vision & Face Detection
+# 시스템 패키지 먼저 설치 (터미널에서)
+# sudo apt install -y python3-pip python3-venv python3-full portaudio19-dev libatlas-base-dev libportaudio2 libasound2-dev
+
+# Computer Vision
 opencv-python==4.10.0.84
 Pillow==10.4.0
 
-# Transformers & AI Models (BitNet 의존성)
+# Transformers (ARM 호환 버전)
 transformers==4.44.2
-torch==2.4.1
---extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.4.1 --extra-index-url https://download.pytorch.org/whl/cpu
 huggingface-hub==0.36.0
 safetensors==0.4.5
-tokenizers==0.20.9
+tokenizers==0.22.1        # 0.20.9 → 0.22.1 (ARM64 지원)
 filelock==3.20.3
-numpy==2.1.1
-accelerate==1.0.1
+numpy==1.26.4             # 2.1.1 → 1.26.4 (호환성)
+accelerate
 
-# Audio Processing & STT
-faster-whisper==1.0.3
-ctranslate2==4.4.0
-pyaudio==0.2.14
+# Audio STT (faster-whisper)
+faster-whisper
+ctranslate2
 sounddevice==0.5.1
 soundfile==0.12.1
-librosa==0.10.2
-scipy==1.14.1
 
 # TTS (Piper)
-piper-tts==1.2.0
+piper-tts
 
-# System & Utilities
+# GPIO & System
 RPi.GPIO==0.7.1
-psutil==6.1.0
+psutil
 
-# BitNet 공식 의존성
-gguf==0.9.0
-sentencepiece==0.2.0
+# BitNet
+gguf
+sentencepiece
 
-# Web & Model Download
-requests==2.32.3
-tqdm==4.66.5
-
-# Development
-black==24.8.0
-mypy==1.12.0
+# Utilities
+requests
+tqdm
