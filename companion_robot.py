@@ -9,19 +9,18 @@ import gc  # 메모리 관리용
 import subprocess
 import os
 
-# BitNet을 위한 llama-cpp-python 사용 (CPU 전용)
 try:
-    from llama_cpp import Llama
-    BITNET_MODEL_PATH = "/home/sptcnl/models/bitnet_b1_58-3B.Q4_K_M.gguf"
-    chat_model = Llama(
+    # BitNet 공식 inference 사용
+    from bitnet import BitNetCpp  # BitNet Python 바인딩
+    BITNET_MODEL_PATH = "/home/sptcnl/models/BitNet-b1.58-3B/ggml-model-i2_s.gguf"
+    chat_model = BitNetCpp(
         model_path=BITNET_MODEL_PATH,
         n_ctx=512,
-        n_threads=4,
-        n_gpu_layers=0,
+        n_threads=4,  # Raspberry Pi CPU 코어 수
         verbose=False
     )
     LLM_AVAILABLE = True
-    print("✅ BitNet 3B 로드 성공! (~1GB 메모리)")
+    print("✅ BitNet b1.58-3B (I2_S) 로드 성공! (~400MB)")
 except Exception as e:
     LLM_AVAILABLE = False
     print(f"⚠️ BitNet 로드 실패: {e}")
@@ -143,20 +142,17 @@ def local_chat(user_text: str, emotion: str, face_detected: bool) -> str:
     if LLM_AVAILABLE:
         try:
             prompt = f"[{context}] User: {user_text}\nFriendly robot dog:"
-            response = chat_model(
+            response = chat_model.generate(  # BitNet API
                 prompt, 
                 max_tokens=50,
                 temperature=0.7,
                 top_p=0.9,
-                stop=["User:", "\n\n"],
-                echo=False
+                stop=["User:", "\n\n"]
             )
-            reply = response['choices'][0]['text'].strip()
-            gc.collect()
+            reply = response.strip()
             return reply[:80]
         except Exception as e:
-            print(f"LLM 오류: {e}")
-            gc.collect()
+            print(f"BitNet 오류: {e}")
     
     if face_detected:
         return "🐶 얼굴 봤어! 같이 놀자!"
