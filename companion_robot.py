@@ -12,7 +12,7 @@ import os
 try:
     # BitNet 공식 inference 사용
     from bitnet import BitNetCpp  # BitNet Python 바인딩
-    BITNET_MODEL_PATH = "/home/sptcnl/models/BitNet-b1.58-3B/ggml-model-i2_s.gguf"
+    BITNET_MODEL_PATH = "/home/sptcnl/models/BitNet-b1.58-2B/ggml-model-i2_s.gguf"
     chat_model = BitNetCpp(
         model_path=BITNET_MODEL_PATH,
         n_ctx=512,
